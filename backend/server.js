@@ -10,7 +10,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:5173", // Use your specific frontend port
+        origin: "language-exchange-a67spjbp7-rahulp-fxs-projects.vercel.app", // Use your specific frontend port
         methods: ["GET", "POST"]
     }
 });

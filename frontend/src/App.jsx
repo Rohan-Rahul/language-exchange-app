@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import Peer from 'simple-peer';
 
 //Connect to backend server with port 5000
-const URL = "https://kilted-uncivilly-latarsha.ngrok-free.dev";
+const URL = "https://language-exchange-app.onrender.com";
 
 const socket = io(URL, {
   autoConnect: false //connect manually when components mounts

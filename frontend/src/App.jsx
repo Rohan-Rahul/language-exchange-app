@@ -53,9 +53,21 @@ function App(){
   const callUser = () => {
     const peer = new Peer({initiator: true, trickle: false, stream: stream, config: {
       iceServers: [
+      // 1. Try direct connection first (STUN)
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      
+      // 2. Fallback to relaying video if blocked (TURN)
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
     }});
 
@@ -80,10 +92,22 @@ function App(){
     setCallAccepted(true);
     const peer = new Peer({initiator: false, trickle: false, stream: stream, config: {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
+      // 1. Try direct connection first (STUN)
+      { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-      ]
+      
+      // 2. Fallback to relaying video if blocked (TURN)
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+    ]
     }});
 
     peer.on("signal", (data)=>{

@@ -28,6 +28,12 @@ io.on("connection", (socket) => {
     });
 });
 
+socket.on("join-room", (roomId) => {
+    socket.join(roomId);
+    // Now, only send 'hey' or 'callAccepted' to people in that specific room
+    // Use socket.to(roomId).emit(...) instead of socket.broadcast.emit(...)
+});
+
 const PORT = 5000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

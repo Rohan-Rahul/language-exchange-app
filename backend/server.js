@@ -1,6 +1,6 @@
 const express = require('express');
 const { createServer } = require('http');
-const { Server } = require('socket.io'); 
+const { Server } = require('socket.io');
 const cors = require('cors');
 
 const app = express();
@@ -15,22 +15,16 @@ const io = new Server(httpServer, {
     }
 });
 
-io.on('connection', (socket) => {
-    console.log('User Connected:', socket.id);
+io.on("connection", (socket) => {
+    socket.emit("me", socket.id);
 
-    // When a user joins a room
-    socket.on('join-room', (roomId) => {
-        socket.join(roomId);
-        console.log(`User ${socket.id} joined room: ${roomId}`);
+    socket.on("callUser", (data) => {
+        // Broadcast to everyone else that a call is starting
+        socket.broadcast.emit("hey", { signal: data.signalData, from: socket.id });
     });
 
-    // Relay WebRTC signals (Offers, Answers, ICE Candidates)
-    socket.on('signal', (data) => {
-        // Send the signal to everyone else in the room except the sender
-        socket.to(data.roomId).emit('signal', {
-            from: socket.id,
-            signal: data.signal
-        });
+    socket.on("answerCall", (data) => {
+        socket.broadcast.emit("callAccepted", data.signal);
     });
 });
 

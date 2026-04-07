@@ -1,5 +1,6 @@
-import { useEffect,useState } from "react";
+import { useEffect,useState,useRef } from "react";
 import { io } from 'socket.io-client';
+import Peer from 'simple-peer';
 
 //Connect to backend server with port 5000
 const URL = import.meta.env.PROD ? undefined : 'http://localhost:5000';
@@ -10,45 +11,82 @@ const socket = io(URL, {
 
 function App(){
   const [isConnected, setIsConnected] = useState(socket.connected);
+  const [stream, setStream] = useState(null);
+  const [receivingCall, setReceivingCall] = useState(false);
+  const [callerSignal, setCallerSignal] = useState();
+  const [callAccepted, setCallAccepted] = useState(false);
+
+  //these "refs" allow React to control the <video> elements
+  const localVideo = useRef();
+  const remoteVideo = useRef();
+  const connectionRef = useRef();
 
   useEffect(()=>{
     socket.connect();
 
-    function onConnect(){
-    setIsConnected(true);
-    console.log('Connected to Server with ID: ', socket.id);
-    }
+    navigator.mediaDevices.getUserMedia({video:true, audio: true}).then((mediaStream)=>{
+      setStream(mediaStream);
+      if(localVideo.current) localVideo.current.srcObject = mediaStream;
+    });
 
-    function onDisconnect(){
-      setIsConnected(false);
-      console.log('Disconnected from server');
-    }
-
-    //setup event listeners
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
-    //clean up event listener when component unmounts
-    return()=>{
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      socket.disconnect();
-    };
+    socket.on("hey", (data)=>{
+      setReceivingCall(true);
+      setCallerSignal(data.signal);
+    });
   }, []);
-  
-  return (
-    <div style={{padding: '20px', fontFamily: 'sans-serif'}}>
-      <h1>Language Exchange Interface</h1>
-      <p>
-        Server Status:
-        <strong style={{color: isConnected ? 'green' : 'red', marginLeft: '8px'}}>
-          {isConnected ? 'Connected' : 'Disconnected'}
-        </strong>
-      </p>
 
-      <div style={{display:'flex', gap: '20px', marginTop: '20px'}}>
-        <div style={{width: '400px', height: '300px', backgroundColor: '#333', color: 'white', display: 'flex', alignItems:'center',justifyContent:'center'}}>Local Video (You)</div>
-        <div style={{width: '400px', height: '300px', backgroundColor: '#333', color: 'white', display: 'flex', alignItems:'center',justifyContent:'center'}}>Remote Video (Peer)</div>
+  //function to start a call
+  const callUser = () => {
+    const peer = new Peer({initiator: true, trickle: false, stream: stream});
+
+    peer.on("signal", (data)=>{
+      socket.emit("callUser", {signalData: data});
+    });
+
+    peer.on("stream", (remoteStream)=>{
+      if(remoteVideo.current) remoteVideo.current.srcObject=remoteStream;
+    });
+
+    socket.on("callAccepted", (signal)=>{
+      setCallAccepted(true);
+      peer.signal(signal);
+    });
+
+    connectionRef.current = peer;
+  };
+  
+  //function to answer a call
+  const answerCall = ()=>{
+    setCallAccepted(true);
+    const peer = new Peer({initiator: false, trickle: false, stream: stream});
+
+    peer.on("signal", (data)=>{
+      socket.emit("answerCall", {signal: data});
+    });
+
+    peer.on("stream", (remoteStream)=>{
+      remoteVideo.current.srcObject = remoteStream;
+    });
+
+    peer.signal(callerSignal);
+    connectionRef.current=peer;
+  }
+
+  return (
+    <div style={{ padding: '20px', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
+      <h1>Language Exchange</h1>
+      
+      <div style={{ marginBottom: '20px' }}>
+        {receivingCall && !callAccepted ? (
+          <button onClick={answerCall} style={{ padding: '10px 20px', backgroundColor: '#4ade80' }}>Answer Call</button>
+        ) : (
+          <button onClick={callUser} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white' }}>Start Call</button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: '20px' }}>
+        <video playsInline muted ref={localVideo} autoPlay style={{ width: '400px', border: '2px solid #4ade80' }} />
+        {callAccepted && <video playsInline ref={remoteVideo} autoPlay style={{ width: '400px', border: '2px solid #3b82f6' }} />}
       </div>
     </div>
   );

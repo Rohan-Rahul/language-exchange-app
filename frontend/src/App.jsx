@@ -134,11 +134,11 @@ function App() {
       <h2 style={{ padding: '20px', margin: 0, fontWeight: 'bold', color: '#f3f4f6' }}>Language Exchange</h2>
 
       {/* Main Video Container */}
-      <div style={{ position: 'relative', width: '90%', maxWidth: '1000px', height: '60vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+      <div style={{ position: 'relative', width: '90vw', height: '75vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
         
         {/* Remote Video (Takes up full container if accepted, otherwise hidden) */}
         {callAccepted && !callEnded ? (
-          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'cover' }} />
         ) : (
           <div style={{ color: '#9ca3af', fontSize: '1.2rem' }}>Waiting for connection...</div>
         )}
@@ -163,7 +163,7 @@ function App() {
             backgroundColor: 'black', 
           }} 
         />
-        
+
         {/* disable camera icon */}
         <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '72px', right: '95px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
         

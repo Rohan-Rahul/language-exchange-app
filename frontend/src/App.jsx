@@ -135,7 +135,7 @@ function App() {
         
         {/* Remote Video (Takes up full container if accepted, otherwise hidden) */}
         {callAccepted && !callEnded ? (
-          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'fill' }} />
+          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'contain' }} />
         ) : (
           <div style={{ color: '#9ca3af', fontSize: '1.2rem' }}>Waiting for connection...</div>
         )}

@@ -11,7 +11,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
         // MUST include https:// and no trailing slash
-        origin: "https://language-exchange-app-new.vercel.app",
+        origin: "https://language-exchange-app-eight.vercel.app",
         methods: ["GET", "POST"]
     }
 });

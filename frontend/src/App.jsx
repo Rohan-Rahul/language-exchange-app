@@ -128,17 +128,14 @@ function App() {
   };
 
   return (
-    <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'sans-serif', color: 'white' }}>
-      
-      {/* Header */}
-      <h2 style={{ padding: '20px', margin: 0, fontWeight: 'bold', color: '#f3f4f6' }}>Language Exchange</h2>
+    <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',justifyContent: 'center', fontFamily: 'sans-serif', color: 'white' }}>
 
       {/* Main Video Container */}
-      <div style={{ position: 'relative', width: '90vw', height: '75vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+      <div style={{ position: 'relative', width: '90vw', height: '90vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
         
         {/* Remote Video (Takes up full container if accepted, otherwise hidden) */}
         {callAccepted && !callEnded ? (
-          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'cover' }} />
+          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'fill' }} />
         ) : (
           <div style={{ color: '#9ca3af', fontSize: '1.2rem' }}>Waiting for connection...</div>
         )}
@@ -153,9 +150,9 @@ function App() {
             position: 'absolute', 
             bottom: '20px', 
             right: '20px', 
-            width: '200px', 
-            height: '150px', 
-            objectFit: 'cover', 
+            width: '250px', 
+            height: '200px', 
+            objectFit: 'fill', 
             borderRadius: '8px', 
             border: '2px solid #374151',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
@@ -165,31 +162,33 @@ function App() {
         />
 
         {/* disable camera icon */}
-        <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '72px', right: '95px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
+        <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '92px', right: '115px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
         
         {/* muted mic icon */}
         <img src={muted} alt="muteIcon" style={{position: 'absolute', bottom: '30px', right: '30px', width: '20px', height: '20px',display: micActive ? 'none' : 'block'}}/>
-      </div>
 
-      {/* Control Bar */}
-      <div style={{ display: 'flex', gap: '15px', marginTop: '30px', padding: '15px 30px', backgroundColor: '#1f2937', borderRadius: '50px' }}>
-        <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: micActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
-          {micActive ? "Mic" : "Mute"}
-        </button>
-        
-        <button onClick={toggleCamera} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: cameraActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
-          {cameraActive ? "Cam" : "Off"}
-        </button>
+          {/* Control Bar */}
+        <div style={{position: 'absolute', bottom: '10px'}}>
+          <div style={{ display: 'flex', gap: '15px', marginTop: '30px', padding: '15px 30px', backgroundColor: '#131820', borderRadius: '50px' }}>
+            <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: micActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
+              {micActive ? "Mic" : "Mute"}
+            </button>
+            
+            <button onClick={toggleCamera} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: cameraActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
+              {cameraActive ? "Cam" : "Off"}
+            </button>
 
-        {callAccepted && !callEnded ? (
-          <button onClick={leaveCall} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold' }}>
-            End Call
-          </button>
-        ) : (
-          <button onClick={callUser} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold' }}>
-            Call
-          </button>
-        )}
+            {callAccepted && !callEnded ? (
+              <button onClick={leaveCall} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold' }}>
+                End Call
+              </button>
+            ) : (
+              <button onClick={callUser} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold' }}>
+                Call
+              </button>
+            )}
+          </div>
+        </div>      
       </div>
 
       {/* Incoming Call Notification */}

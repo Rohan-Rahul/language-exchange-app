@@ -163,7 +163,10 @@ function App() {
             backgroundColor: 'black', 
           }} 
         />
+        {/* disable camera icon */}
         <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '72px', right: '95px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
+        
+        {/* muted mic icon */}
         <img src={muted} alt="muteIcon" style={{position: 'absolute', bottom: '30px', right: '30px', width: '20px', height: '20px',display: micActive ? 'none' : 'block'}}/>
       </div>
 

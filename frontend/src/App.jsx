@@ -1,156 +1,204 @@
-import { useEffect,useState,useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io } from 'socket.io-client';
 import Peer from 'simple-peer';
+import muted from '../src/assets/mute.png';
+import disableCamera from '../src/assets/disableCamera.png';
 
-//Connect to backend server with port 5000
-const URL = "https://kilted-uncivilly-latarsha.ngrok-free.dev";
+// Update this to your live backend URL before deploying
+const URL = "https://language-exchange-app.onrender.com"; 
 
 const socket = io(URL, {
-  autoConnect: false //connect manually when components mounts
+  autoConnect: false 
 });
 
-function App(){
+function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [stream, setStream] = useState(null);
   const [receivingCall, setReceivingCall] = useState(false);
   const [callerSignal, setCallerSignal] = useState();
   const [callAccepted, setCallAccepted] = useState(false);
+  const [callEnded, setCallEnded] = useState(false);
   const [micActive, setMicActive] = useState(true);
   const [cameraActive, setCameraActive] = useState(true);
 
-  const toggleMic = () => {
-    const audioTrack = stream.getAudioTracks()[0];
-    audioTrack.enabled = !audioTrack.enabled;
-    setMicActive(audioTrack.enabled);
-  };
-
-  const toggleCamera = () => {
-    const videoTrack = stream.getVideoTracks()[0];
-    videoTrack.enabled = !videoTrack.enabled;
-    setCameraActive(videoTrack.enabled);
-  };
-
-  //these "refs" allow React to control the <video> elements
   const localVideo = useRef();
   const remoteVideo = useRef();
   const connectionRef = useRef();
 
-  useEffect(()=>{
+  useEffect(() => {
     socket.connect();
 
-    navigator.mediaDevices.getUserMedia({video:true, audio: true}).then((mediaStream)=>{
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((mediaStream) => {
       setStream(mediaStream);
-      if(localVideo.current) localVideo.current.srcObject = mediaStream;
+      if (localVideo.current) localVideo.current.srcObject = mediaStream;
     });
 
-    socket.on("hey", (data)=>{
+    socket.on("hey", (data) => {
       setReceivingCall(true);
       setCallerSignal(data.signal);
     });
+
+    socket.on("callEnded", () => {
+      setCallEnded(true);
+      if (connectionRef.current) connectionRef.current.destroy();
+      window.location.reload(); // Resets the UI for a new call
+    });
   }, []);
 
-  //function to start a call
   const callUser = () => {
-    const peer = new Peer({initiator: true, trickle: false, stream: stream, config: {
-      iceServers: [
-      // 1. Try direct connection first (STUN)
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      
-      // 2. Fallback to relaying video if blocked (TURN)
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream: stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
       }
-    ]
-    }});
-
-    peer.on("signal", (data)=>{
-      socket.emit("callUser", {signalData: data});
     });
 
-    peer.on("stream", (remoteStream)=>{
-      if(remoteVideo.current) remoteVideo.current.srcObject=remoteStream;
+    peer.on("signal", (data) => {
+      socket.emit("callUser", { signalData: data });
     });
 
-    socket.on("callAccepted", (signal)=>{
+    peer.on("stream", (remoteStream) => {
+      if (remoteVideo.current) remoteVideo.current.srcObject = remoteStream;
+    });
+
+    socket.on("callAccepted", (signal) => {
       setCallAccepted(true);
       peer.signal(signal);
     });
 
     connectionRef.current = peer;
   };
-  
-  //function to answer a call
-  const answerCall = ()=>{
-    setCallAccepted(true);
-    const peer = new Peer({initiator: false, trickle: false, stream: stream, config: {
-      iceServers: [
-      // 1. Try direct connection first (STUN)
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      
-      // 2. Fallback to relaying video if blocked (TURN)
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
-    ]
-    }});
 
-    peer.on("signal", (data)=>{
-      socket.emit("answerCall", {signal: data, to: callerSignal.from});
+  const answerCall = () => {
+    setCallAccepted(true);
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream: stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
+      }
     });
 
-    peer.on("stream", (remoteStream)=>{
-      //connects the caller's video to receiver's screen
-      if(remoteVideo.current){
-        remoteVideo.current.srcObject = remoteStream;
-      }
+    peer.on("signal", (data) => {
+      socket.emit("answerCall", { signal: data, to: callerSignal.from });
+    });
+
+    peer.on("stream", (remoteStream) => {
+      if (remoteVideo.current) remoteVideo.current.srcObject = remoteStream;
     });
 
     peer.signal(callerSignal);
-    connectionRef.current=peer;
-  }
+    connectionRef.current = peer;
+  };
+
+  const leaveCall = () => {
+    setCallEnded(true);
+    socket.emit("endCall");
+    if (connectionRef.current) connectionRef.current.destroy();
+    window.location.reload();
+  };
+
+  const toggleMic = () => {
+    if (stream) {
+      const audioTrack = stream.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+      setMicActive(audioTrack.enabled);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0];
+      videoTrack.enabled = !videoTrack.enabled;
+      setCameraActive(videoTrack.enabled);
+    }
+  };
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
-      <h1>Language Exchange</h1>
+    <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'sans-serif', color: 'white' }}>
       
-      <div style={{ marginBottom: '20px' }}>
-        {receivingCall && !callAccepted ? (
-          <button onClick={answerCall} style={{ padding: '10px 20px', backgroundColor: '#4ade80' }}>Answer Call</button>
+      {/* Header */}
+      <h2 style={{ padding: '20px', margin: 0, fontWeight: 'bold', color: '#f3f4f6' }}>Language Exchange</h2>
+
+      {/* Main Video Container */}
+      <div style={{ position: 'relative', width: '90%', maxWidth: '1000px', height: '60vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+        
+        {/* Remote Video (Takes up full container if accepted, otherwise hidden) */}
+        {callAccepted && !callEnded ? (
+          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <button onClick={callUser} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white' }}>Start Call</button>
+          <div style={{ color: '#9ca3af', fontSize: '1.2rem' }}>Waiting for connection...</div>
+        )}
+
+        {/* Local Video (Picture-in-Picture Style) */}
+        <video 
+          playsInline 
+          muted 
+          ref={localVideo} 
+          autoPlay 
+          style={{ 
+            position: 'absolute', 
+            bottom: '20px', 
+            right: '20px', 
+            width: '200px', 
+            height: '150px', 
+            objectFit: 'cover', 
+            borderRadius: '8px', 
+            border: '2px solid #374151',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
+            display: cameraActive ? 'block' : '',
+            backgroundColor: 'black', 
+          }} 
+        />
+        <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '72px', right: '95px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
+        <img src={muted} alt="muteIcon" style={{position: 'absolute', bottom: '30px', right: '30px', width: '20px', height: '20px',display: micActive ? 'none' : 'block'}}/>
+      </div>
+
+      {/* Control Bar */}
+      <div style={{ display: 'flex', gap: '15px', marginTop: '30px', padding: '15px 30px', backgroundColor: '#1f2937', borderRadius: '50px' }}>
+        <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: micActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
+          {micActive ? "Mic" : "Mute"}
+        </button>
+        
+        <button onClick={toggleCamera} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: cameraActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
+          {cameraActive ? "Cam" : "Off"}
+        </button>
+
+        {callAccepted && !callEnded ? (
+          <button onClick={leaveCall} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold' }}>
+            End Call
+          </button>
+        ) : (
+          <button onClick={callUser} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold' }}>
+            Call
+          </button>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '20px' }}>
-        <video playsInline muted ref={localVideo} autoPlay style={{ width: '400px', border: '2px solid #4ade80' }} />
-        {callAccepted && <video playsInline ref={remoteVideo} autoPlay style={{ width: '400px', border: '2px solid #3b82f6' }} />}
-      </div>
-      <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
-        <button onClick={toggleMic} style={{ backgroundColor: micActive ? '#3b82f6' : '#ef4444', color: 'white', padding: '8px' }}>
-          {micActive ? "Mute Mic" : "Unmute Mic"}
-        </button>
-        <button onClick={toggleCamera} style={{ backgroundColor: cameraActive ? '#3b82f6' : '#ef4444', color: 'white', padding: '8px' }}>
-          {cameraActive ? "Stop Video" : "Start Video"}
-        </button>
-      </div>
+      {/* Incoming Call Notification */}
+      {receivingCall && !callAccepted && (
+        <div style={{ position: 'fixed', top: '20px', backgroundColor: '#374151', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{ fontWeight: 'bold' }}>Incoming Call...</span>
+          <button onClick={answerCall} style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#10b981', color: 'white', fontWeight: 'bold' }}>
+            Answer
+          </button>
+        </div>
+      )}
+
     </div>
-    
   );
 }
 

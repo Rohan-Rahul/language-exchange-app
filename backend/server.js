@@ -38,6 +38,10 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => {
         console.log("User Disconnected:", socket.id);
     });
+
+    socket.on("endCall", () => {
+        socket.broadcast.emit("callEnded");
+    });
 });
 
 // Use process.env.PORT for deployment (Render/Railway/Heroku)

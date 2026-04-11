@@ -10,7 +10,6 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        // MUST include https:// and no trailing slash
         origin: "https://language-exchange-app-eight.vercel.app",
         methods: ["GET", "POST"]
     }
@@ -20,7 +19,6 @@ io.on("connection", (socket) => {
     console.log("User Connected:", socket.id);
     socket.emit("me", socket.id);
 
-    // Room joining logic
     socket.on("join-room", (roomId) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
@@ -42,9 +40,14 @@ io.on("connection", (socket) => {
     socket.on("endCall", () => {
         socket.broadcast.emit("callEnded");
     });
+
+    // Added logic to listen for a stopped screen share
+    socket.on("stopScreenShare", () => {
+        socket.broadcast.emit("screenShareStopped");
+    });
 });
 
-// Use process.env.PORT for deployment (Render/Railway/Heroku)
+// Use process.env.PORT for deployment
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

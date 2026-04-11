@@ -263,14 +263,12 @@ function App() {
     zIndex: 5
   };
 
-  // Dynamic calculations for the grid layout
   const activeScreensCount = (callAccepted && !callEnded ? 1 : 0) + (isScreenSharing ? 1 : 0) + (isReceivingScreen ? 1 : 0);
   const gridColumns = activeScreensCount <= 1 ? '1fr' : '1fr 1fr';
 
   const gridItemStyle = {
     position: 'relative',
     backgroundColor: '#000',
-    borderRadius: '8px',
     overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
@@ -315,22 +313,21 @@ function App() {
         </div>
       ) : (
 
-      <div style={{ position: 'relative', width: '95vw', height: '90vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+      <div style={{ position: 'relative', width: '90vw', height: '90vh', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
         
-        <div style={{ position: 'absolute', top: '20px', left: '20px', backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', zIndex: 10 }}>
-            Room Code: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{roomId}</span>
+        {/* Room Code Overlay */}
+        <div style={{ position: 'absolute', top: '15px', left: '15px', backgroundColor: 'rgba(0,0,0,0.6)', padding: '8px 12px', borderRadius: '6px', zIndex: 10, fontSize: '0.9rem' }}>
+            Code: <span style={{ color: '#10b981', fontWeight: 'bold', letterSpacing: '1px' }}>{roomId}</span>
         </div>
 
-        {/* Dynamic CSS Grid Layout */}
+        {/* Dynamic CSS Grid Layout - Full Bleed */}
         <div style={{ 
             display: 'grid', 
             gridTemplateColumns: gridColumns, 
             gridAutoRows: '1fr', 
-            gap: '15px', 
+            gap: '5px', 
             width: '100%', 
-            height: 'calc(100% - 100px)', 
-            padding: '20px', 
-            paddingBottom: '0',
+            height: '100%', 
             boxSizing: 'border-box' 
         }}>
             
@@ -366,15 +363,17 @@ function App() {
         </div>
 
         {/* Local Video (Floating Picture-in-Picture) */}
-        <div style={{ position: 'absolute', bottom: '90px', right: '20px', width: '200px', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #374151', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)', display: cameraActive ? 'block' : 'none', backgroundColor: 'black', zIndex: 10 }}>
-          <video playsInline muted ref={localVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div style={{ position: 'absolute', bottom: '110px', right: '20px', width: '250px', height: '200px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #374151', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)', display: cameraActive ? 'block' : 'none', backgroundColor: 'black', zIndex: 10 }}>
+          <video playsInline muted ref={localVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
           <div style={nameBadgeStyle}>{userName || "You"}</div>
           <img src={muted} alt="muteIcon" style={{position: 'absolute', top: '10px', right: '10px', width: '20px', height: '20px', display: micActive ? 'none' : 'block', zIndex: 11}}/>
         </div>
 
+        <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '202px', right: '125px', width: '40px', height: '40px', display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)', zIndex: 11}}/>
+
         {/* Control Bar */}
-        <div style={{position: 'absolute', bottom: '10px', zIndex: 20}}>
-          <div style={{ display: 'flex', gap: '15px', padding: '15px 30px', backgroundColor: '#131820', borderRadius: '50px' }}>
+        <div style={{position: 'absolute', bottom: '20px', zIndex: 20}}>
+          <div style={{ display: 'flex', gap: '15px', padding: '15px 30px', backgroundColor: '#131820', borderRadius: '50px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.5)' }}>
             <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: micActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
               {micActive ? "Mic" : "Mute"}
             </button>

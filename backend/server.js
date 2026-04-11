@@ -42,6 +42,10 @@ io.on("connection", (socket) => {
         socket.to(roomId).emit("screenShareStopped");
     });
 
+    socket.on("sendSignal", (data) => {
+        socket.to(data.roomId).emit("receiveSignal", data.signal);
+    });
+
     socket.on("disconnect", () => {
         console.log("User Disconnected:", socket.id);
     });

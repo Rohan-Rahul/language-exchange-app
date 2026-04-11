@@ -14,13 +14,11 @@ function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [stream, setStream] = useState(null);
   
-  // User and Room States
   const [userName, setUserName] = useState("");
   const [remoteUserName, setRemoteUserName] = useState("Friend");
   const [roomId, setRoomId] = useState("");
   const [inRoom, setInRoom] = useState(false);
 
-  // Call States
   const [receivingCall, setReceivingCall] = useState(false);
   const [callerSignal, setCallerSignal] = useState();
   const [callAccepted, setCallAccepted] = useState(false);
@@ -28,7 +26,6 @@ function App() {
   const [micActive, setMicActive] = useState(true);
   const [cameraActive, setCameraActive] = useState(true);
   
-  // Screen Sharing States
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isReceivingScreen, setIsReceivingScreen] = useState(false);
   const [remoteScreenStream, setRemoteScreenStream] = useState(null);
@@ -253,7 +250,6 @@ function App() {
     socket.emit("stopScreenShare", roomId);
   };
 
-  // Reusable style for name labels
   const nameBadgeStyle = {
     position: 'absolute',
     bottom: '10px',
@@ -265,6 +261,22 @@ function App() {
     fontSize: '0.9rem',
     fontWeight: 'bold',
     zIndex: 5
+  };
+
+  // Dynamic calculations for the grid layout
+  const activeScreensCount = (callAccepted && !callEnded ? 1 : 0) + (isScreenSharing ? 1 : 0) + (isReceivingScreen ? 1 : 0);
+  const gridColumns = activeScreensCount <= 1 ? '1fr' : '1fr 1fr';
+
+  const gridItemStyle = {
+    position: 'relative',
+    backgroundColor: '#000',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%'
   };
 
   return (
@@ -309,11 +321,21 @@ function App() {
             Room Code: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{roomId}</span>
         </div>
 
-        {/* Dynamic Grid Layout for Multiple Screens */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%', height: 'calc(100% - 80px)', padding: '20px', gap: '10px', boxSizing: 'border-box', alignContent: 'center', justifyContent: 'center' }}>
+        {/* Dynamic CSS Grid Layout */}
+        <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: gridColumns, 
+            gridAutoRows: '1fr', 
+            gap: '15px', 
+            width: '100%', 
+            height: 'calc(100% - 100px)', 
+            padding: '20px', 
+            paddingBottom: '0',
+            boxSizing: 'border-box' 
+        }}>
             
           {/* Remote Camera Video */}
-          <div style={{ flex: '1 1 45%', minWidth: '300px', height: (isScreenSharing || isReceivingScreen) ? '45%' : '100%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={gridItemStyle}>
             {callAccepted && !callEnded ? (
               <>
                 <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -328,7 +350,7 @@ function App() {
 
           {/* Local Shared Screen */}
           {isScreenSharing && (
-            <div style={{ flex: '1 1 45%', minWidth: '300px', height: '45%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '2px solid #10b981' }}>
+            <div style={{ ...gridItemStyle, border: '2px solid #10b981' }}>
                <video playsInline muted ref={localScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                <div style={nameBadgeStyle}>{userName}'s Screen</div>
             </div>
@@ -336,7 +358,7 @@ function App() {
 
           {/* Remote Shared Screen */}
           {isReceivingScreen && (
-            <div style={{ flex: '1 1 45%', minWidth: '300px', height: '45%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '2px solid #3b82f6' }}>
+            <div style={{ ...gridItemStyle, border: '2px solid #3b82f6' }}>
                <video playsInline ref={remoteScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                <div style={nameBadgeStyle}>{remoteUserName}'s Screen</div>
             </div>
@@ -346,7 +368,7 @@ function App() {
         {/* Local Video (Floating Picture-in-Picture) */}
         <div style={{ position: 'absolute', bottom: '90px', right: '20px', width: '200px', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #374151', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)', display: cameraActive ? 'block' : 'none', backgroundColor: 'black', zIndex: 10 }}>
           <video playsInline muted ref={localVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={nameBadgeStyle}>{userName} (You)</div>
+          <div style={nameBadgeStyle}>{userName || "You"}</div>
           <img src={muted} alt="muteIcon" style={{position: 'absolute', top: '10px', right: '10px', width: '20px', height: '20px', display: micActive ? 'none' : 'block', zIndex: 11}}/>
         </div>
 

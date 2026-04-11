@@ -4,6 +4,7 @@ import Peer from 'simple-peer';
 import muted from '../src/assets/mute.png';
 import disableCamera from '../src/assets/disableCamera.png';
 
+// Update this to your live backend URL before deploying
 const URL = "https://language-exchange-app.onrender.com"; 
 
 const socket = io(URL, {
@@ -34,19 +35,17 @@ function App() {
   const localVideo = useRef();
   const remoteVideo = useRef();
   const connectionRef = useRef();
+  const isInitialSignal = useRef(true); // Tracks renegotiation
   
   const localScreenVideo = useRef();
   const remoteScreenVideo = useRef();
   const screenStreamRef = useRef();
-
-  const isInitialSignal = useRef(true);
 
   useEffect(() => {
     socket.connect();
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((mediaStream) => {
       setStream(mediaStream);
-      if (localVideo.current) localVideo.current.srcObject = mediaStream;
     });
 
     socket.on("hey", (data) => {
@@ -54,16 +53,17 @@ function App() {
       setCallerSignal(data.signal);
     });
 
-    socket.on("callEnded", () => {
-      setCallEnded(true);
-      if (connectionRef.current) connectionRef.current.destroy();
-      window.location.reload();
-    });
-
+    // Listens for mid-call renegotiation signals (Screen Share)
     socket.on("receiveSignal", (signal) => {
       if (connectionRef.current) {
         connectionRef.current.signal(signal);
       }
+    });
+
+    socket.on("callEnded", () => {
+      setCallEnded(true);
+      if (connectionRef.current) connectionRef.current.destroy();
+      window.location.reload();
     });
 
     socket.on("screenShareStopped", () => {
@@ -75,18 +75,26 @@ function App() {
     });
   }, []);
 
-  // Fix: Wait for the DOM to render the remoteScreenVideo element before attaching the stream
-  useEffect(() => {
-    if (isReceivingScreen && remoteScreenVideo.current && remoteScreenStream) {
-      remoteScreenVideo.current.srcObject = remoteScreenStream;
-    }
-  }, [isReceivingScreen, remoteScreenStream]);
-
+  // Attach local camera stream once the user enters the room
   useEffect(() => {
     if (inRoom && localVideo.current && stream) {
       localVideo.current.srcObject = stream;
     }
   }, [inRoom, stream]);
+
+  // Fix 1: Attach local screen stream ONLY AFTER React has rendered the video element
+  useEffect(() => {
+    if (isScreenSharing && localScreenVideo.current && screenStreamRef.current) {
+      localScreenVideo.current.srcObject = screenStreamRef.current;
+    }
+  }, [isScreenSharing]);
+
+  // Attach remote screen stream once the UI has updated
+  useEffect(() => {
+    if (isReceivingScreen && remoteScreenVideo.current && remoteScreenStream) {
+      remoteScreenVideo.current.srcObject = remoteScreenStream;
+    }
+  }, [isReceivingScreen, remoteScreenStream]);
 
   // Room Functions
   const createPrivateSession = () => {
@@ -103,9 +111,19 @@ function App() {
     }
   };
 
+  // Fix 2: Robust Stream Handler to support both old browsers (stream) and new browsers (track)
+  const handleIncomingStream = (incomingStream) => {
+    const mainStream = remoteVideo.current?.srcObject;
+    if (!mainStream) {
+      if (remoteVideo.current) remoteVideo.current.srcObject = incomingStream;
+    } else if (mainStream.id !== incomingStream.id) {
+      setRemoteScreenStream(incomingStream);
+      setIsReceivingScreen(true); // Unhides the remote screen UI
+    }
+  };
+
   const callUser = () => {
     isInitialSignal.current = true;
-
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -129,14 +147,8 @@ function App() {
       }
     });
 
-    peer.on("stream", (incomingStream) => {
-      if (!remoteVideo.current.srcObject) {
-        remoteVideo.current.srcObject = incomingStream;
-      } else if (remoteVideo.current.srcObject.id !== incomingStream.id) {
-        setRemoteScreenStream(incomingStream);
-        setIsReceivingScreen(true);
-      }
-    });
+    peer.on("stream", handleIncomingStream);
+    peer.on("track", (track, incomingStream) => handleIncomingStream(incomingStream));
 
     socket.on("callAccepted", (signal) => {
       setCallAccepted(true);
@@ -148,7 +160,6 @@ function App() {
 
   const answerCall = () => {
     isInitialSignal.current = true;
-
     setCallAccepted(true);
     const peer = new Peer({
       initiator: false,
@@ -173,14 +184,8 @@ function App() {
       }
     });
 
-    peer.on("stream", (incomingStream) => {
-      if (!remoteVideo.current.srcObject) {
-        remoteVideo.current.srcObject = incomingStream;
-      } else if (remoteVideo.current.srcObject.id !== incomingStream.id) {
-        setRemoteScreenStream(incomingStream);
-        setIsReceivingScreen(true);
-      }
-    });
+    peer.on("stream", handleIncomingStream);
+    peer.on("track", (track, incomingStream) => handleIncomingStream(incomingStream));
 
     peer.signal(callerSignal);
     connectionRef.current = peer;
@@ -217,16 +222,12 @@ function App() {
           audio: true
         });
 
+        screenStreamRef.current = screenStream;
+        setIsScreenSharing(true); // Triggers UI render before attaching stream
+
         if (connectionRef.current) {
           connectionRef.current.addStream(screenStream);
         }
-
-        if (localScreenVideo.current) {
-          localScreenVideo.current.srcObject = screenStream;
-        }
-
-        screenStreamRef.current = screenStream;
-        setIsScreenSharing(true);
 
         screenStream.getVideoTracks()[0].onended = () => {
           stopScreenShare();

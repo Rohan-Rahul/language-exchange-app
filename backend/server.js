@@ -19,35 +19,34 @@ io.on("connection", (socket) => {
     console.log("User Connected:", socket.id);
     socket.emit("me", socket.id);
 
+    // 1. Join a specific Room
     socket.on("join-room", (roomId) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
     });
 
+    // 2. Route all signals ONLY to that specific Room
     socket.on("callUser", (data) => {
-        // If using rooms, use: socket.to(data.roomId).emit(...)
-        socket.broadcast.emit("hey", { signal: data.signalData, from: socket.id });
+        socket.to(data.roomId).emit("hey", { signal: data.signalData, from: socket.id });
     });
 
     socket.on("answerCall", (data) => {
-        socket.broadcast.emit("callAccepted", data.signal);
+        socket.to(data.roomId).emit("callAccepted", data.signal);
+    });
+
+    socket.on("endCall", (roomId) => {
+        socket.to(roomId).emit("callEnded");
+    });
+
+    socket.on("stopScreenShare", (roomId) => {
+        socket.to(roomId).emit("screenShareStopped");
     });
 
     socket.on("disconnect", () => {
         console.log("User Disconnected:", socket.id);
     });
-
-    socket.on("endCall", () => {
-        socket.broadcast.emit("callEnded");
-    });
-
-    // Added logic to listen for a stopped screen share
-    socket.on("stopScreenShare", () => {
-        socket.broadcast.emit("screenShareStopped");
-    });
 });
 
-// Use process.env.PORT for deployment
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

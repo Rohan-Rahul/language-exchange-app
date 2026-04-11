@@ -20,10 +20,19 @@ function App() {
   const [callEnded, setCallEnded] = useState(false);
   const [micActive, setMicActive] = useState(true);
   const [cameraActive, setCameraActive] = useState(true);
+  
+  // Screen Sharing States
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isReceivingScreen, setIsReceivingScreen] = useState(false);
 
   const localVideo = useRef();
   const remoteVideo = useRef();
   const connectionRef = useRef();
+  
+  // Screen Sharing Refs
+  const localScreenVideo = useRef();
+  const remoteScreenVideo = useRef();
+  const screenStreamRef = useRef();
 
   useEffect(() => {
     socket.connect();
@@ -41,7 +50,14 @@ function App() {
     socket.on("callEnded", () => {
       setCallEnded(true);
       if (connectionRef.current) connectionRef.current.destroy();
-      window.location.reload(); // Resets the UI for a new call
+      window.location.reload();
+    });
+
+    socket.on("screenShareStopped", () => {
+      setIsReceivingScreen(false);
+      if (remoteScreenVideo.current) {
+        remoteScreenVideo.current.srcObject = null;
+      }
     });
   }, []);
 
@@ -64,8 +80,15 @@ function App() {
       socket.emit("callUser", { signalData: data });
     });
 
-    peer.on("stream", (remoteStream) => {
-      if (remoteVideo.current) remoteVideo.current.srcObject = remoteStream;
+    peer.on("stream", (incomingStream) => {
+      if (!remoteVideo.current.srcObject) {
+        remoteVideo.current.srcObject = incomingStream;
+      } else if (remoteVideo.current.srcObject.id !== incomingStream.id) {
+        setIsReceivingScreen(true);
+        if (remoteScreenVideo.current) {
+          remoteScreenVideo.current.srcObject = incomingStream;
+        }
+      }
     });
 
     socket.on("callAccepted", (signal) => {
@@ -96,8 +119,15 @@ function App() {
       socket.emit("answerCall", { signal: data, to: callerSignal.from });
     });
 
-    peer.on("stream", (remoteStream) => {
-      if (remoteVideo.current) remoteVideo.current.srcObject = remoteStream;
+    peer.on("stream", (incomingStream) => {
+      if (!remoteVideo.current.srcObject) {
+        remoteVideo.current.srcObject = incomingStream;
+      } else if (remoteVideo.current.srcObject.id !== incomingStream.id) {
+        setIsReceivingScreen(true);
+        if (remoteScreenVideo.current) {
+          remoteScreenVideo.current.srcObject = incomingStream;
+        }
+      }
     });
 
     peer.signal(callerSignal);
@@ -127,18 +157,84 @@ function App() {
     }
   };
 
+  const toggleScreenShare = async () => {
+    if (!isScreenSharing) {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { width: 1920, height: 1080, frameRate: 60 },
+          audio: true
+        });
+
+        if (connectionRef.current) {
+          connectionRef.current.addStream(screenStream);
+        }
+
+        if (localScreenVideo.current) {
+          localScreenVideo.current.srcObject = screenStream;
+        }
+
+        screenStreamRef.current = screenStream;
+        setIsScreenSharing(true);
+
+        screenStream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
+        };
+      } catch (error) {
+        console.error("Screen sharing failed:", error);
+      }
+    } else {
+      stopScreenShare();
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (connectionRef.current && screenStreamRef.current) {
+      connectionRef.current.removeStream(screenStreamRef.current);
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (localScreenVideo.current) {
+      localScreenVideo.current.srcObject = null;
+    }
+    setIsScreenSharing(false);
+    socket.emit("stopScreenShare");
+  };
+
   return (
     <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',justifyContent: 'center', fontFamily: 'sans-serif', color: 'white' }}>
 
       {/* Main Video Container */}
       <div style={{ position: 'relative', width: '90vw', height: '90vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
         
-        {/* Remote Video (Takes up full container if accepted, otherwise hidden) */}
-        {callAccepted && !callEnded ? (
-          <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100vh', objectFit: 'contain' }} />
-        ) : (
-          <div style={{ color: '#9ca3af', fontSize: '1.2rem' }}>Waiting for connection...</div>
-        )}
+        {/* Dynamic Display for Screen Share and Webcams */}
+        <div style={{ display: 'flex', width: '100%', height: '100%', flexDirection: (isScreenSharing || isReceivingScreen) ? 'row' : 'column' }}>
+            
+          {/* Remote Camera Video */}
+          <div style={{ flex: (isScreenSharing || isReceivingScreen) ? 1 : 'none', width: '100%', height: '100%', position: 'relative' }}>
+            {callAccepted && !callEnded ? (
+              <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>
+                Waiting for connection...
+              </div>
+            )}
+          </div>
+
+          {/* Local Shared Screen */}
+          {isScreenSharing && (
+            <div style={{ flex: 1, borderLeft: '2px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+               <video playsInline muted ref={localScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+          )}
+
+          {/* Remote Shared Screen */}
+          {isReceivingScreen && (
+            <div style={{ flex: 2, borderLeft: '2px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+               <video playsInline ref={remoteScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+          )}
+        </div>
 
         {/* Local Video (Picture-in-Picture Style) */}
         <video 
@@ -177,6 +273,13 @@ function App() {
             <button onClick={toggleCamera} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: cameraActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
               {cameraActive ? "Cam" : "Off"}
             </button>
+
+            {/* Screen Share Toggle */}
+            {callAccepted && !callEnded && (
+              <button onClick={toggleScreenShare} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: isScreenSharing ? '#f59e0b' : '#374151', color: 'white', fontWeight: 'bold' }}>
+                {isScreenSharing ? "Stop Share" : "Share"}
+              </button>
+            )}
 
             {callAccepted && !callEnded ? (
               <button onClick={leaveCall} style={{ padding: '0 20px', borderRadius: '25px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold' }}>

@@ -4,7 +4,6 @@ import Peer from 'simple-peer';
 import muted from '../src/assets/mute.png';
 import disableCamera from '../src/assets/disableCamera.png';
 
-// Update this to your live backend URL before deploying
 const URL = "https://language-exchange-app.onrender.com"; 
 
 const socket = io(URL, {
@@ -15,7 +14,9 @@ function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [stream, setStream] = useState(null);
   
-  // Room States
+  // User and Room States
+  const [userName, setUserName] = useState("");
+  const [remoteUserName, setRemoteUserName] = useState("Friend");
   const [roomId, setRoomId] = useState("");
   const [inRoom, setInRoom] = useState(false);
 
@@ -35,7 +36,7 @@ function App() {
   const localVideo = useRef();
   const remoteVideo = useRef();
   const connectionRef = useRef();
-  const isInitialSignal = useRef(true); // Tracks renegotiation
+  const isInitialSignal = useRef(true); 
   
   const localScreenVideo = useRef();
   const remoteScreenVideo = useRef();
@@ -51,9 +52,9 @@ function App() {
     socket.on("hey", (data) => {
       setReceivingCall(true);
       setCallerSignal(data.signal);
+      if (data.userName) setRemoteUserName(data.userName);
     });
 
-    // Listens for mid-call renegotiation signals (Screen Share)
     socket.on("receiveSignal", (signal) => {
       if (connectionRef.current) {
         connectionRef.current.signal(signal);
@@ -75,29 +76,26 @@ function App() {
     });
   }, []);
 
-  // Attach local camera stream once the user enters the room
   useEffect(() => {
     if (inRoom && localVideo.current && stream) {
       localVideo.current.srcObject = stream;
     }
   }, [inRoom, stream]);
 
-  // Fix 1: Attach local screen stream ONLY AFTER React has rendered the video element
   useEffect(() => {
     if (isScreenSharing && localScreenVideo.current && screenStreamRef.current) {
       localScreenVideo.current.srcObject = screenStreamRef.current;
     }
   }, [isScreenSharing]);
 
-  // Attach remote screen stream once the UI has updated
   useEffect(() => {
     if (isReceivingScreen && remoteScreenVideo.current && remoteScreenStream) {
       remoteScreenVideo.current.srcObject = remoteScreenStream;
     }
   }, [isReceivingScreen, remoteScreenStream]);
 
-  // Room Functions
   const createPrivateSession = () => {
+    if (!userName.trim()) return alert("Please enter your name first");
     const newRoom = Math.random().toString(36).substring(2, 10);
     setRoomId(newRoom);
     socket.emit("join-room", newRoom);
@@ -105,20 +103,20 @@ function App() {
   };
 
   const joinRoom = () => {
+    if (!userName.trim()) return alert("Please enter your name first");
     if (roomId.trim()) {
       socket.emit("join-room", roomId);
       setInRoom(true);
     }
   };
 
-  // Fix 2: Robust Stream Handler to support both old browsers (stream) and new browsers (track)
   const handleIncomingStream = (incomingStream) => {
     const mainStream = remoteVideo.current?.srcObject;
     if (!mainStream) {
       if (remoteVideo.current) remoteVideo.current.srcObject = incomingStream;
     } else if (mainStream.id !== incomingStream.id) {
       setRemoteScreenStream(incomingStream);
-      setIsReceivingScreen(true); // Unhides the remote screen UI
+      setIsReceivingScreen(true);
     }
   };
 
@@ -140,7 +138,7 @@ function App() {
 
     peer.on("signal", (data) => {
       if (isInitialSignal.current) {
-        socket.emit("callUser", { signalData: data, roomId });
+        socket.emit("callUser", { signalData: data, roomId, userName });
         isInitialSignal.current = false;
       } else {
         socket.emit("sendSignal", { signal: data, roomId });
@@ -150,9 +148,10 @@ function App() {
     peer.on("stream", handleIncomingStream);
     peer.on("track", (track, incomingStream) => handleIncomingStream(incomingStream));
 
-    socket.on("callAccepted", (signal) => {
+    socket.on("callAccepted", (data) => {
       setCallAccepted(true);
-      peer.signal(signal);
+      peer.signal(data.signal);
+      if (data.userName) setRemoteUserName(data.userName);
     });
 
     connectionRef.current = peer;
@@ -177,7 +176,7 @@ function App() {
 
     peer.on("signal", (data) => {
       if (isInitialSignal.current) {
-        socket.emit("answerCall", { signal: data, to: callerSignal.from, roomId });
+        socket.emit("answerCall", { signal: data, to: callerSignal.from, roomId, userName });
         isInitialSignal.current = false;
       } else {
         socket.emit("sendSignal", { signal: data, roomId });
@@ -223,7 +222,7 @@ function App() {
         });
 
         screenStreamRef.current = screenStream;
-        setIsScreenSharing(true); // Triggers UI render before attaching stream
+        setIsScreenSharing(true); 
 
         if (connectionRef.current) {
           connectionRef.current.addStream(screenStream);
@@ -254,47 +253,72 @@ function App() {
     socket.emit("stopScreenShare", roomId);
   };
 
+  // Reusable style for name labels
+  const nameBadgeStyle = {
+    position: 'absolute',
+    bottom: '10px',
+    left: '10px',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    color: 'white',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '0.9rem',
+    fontWeight: 'bold',
+    zIndex: 5
+  };
+
   return (
     <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',justifyContent: 'center', fontFamily: 'sans-serif', color: 'white' }}>
 
-      {/* Lobby / Room Creation UI */}
       {!inRoom ? (
         <div style={{ backgroundColor: '#1f2937', padding: '40px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
           <h2 style={{ marginBottom: '20px' }}>Start a Private Session</h2>
+          
+          <input 
+            type="text" 
+            placeholder="Enter Your Name" 
+            value={userName} 
+            onChange={(e) => setUserName(e.target.value)}
+            style={{ padding: '10px', borderRadius: '5px', border: 'none', width: '100%', boxSizing: 'border-box', marginBottom: '20px', backgroundColor: '#374151', color: 'white' }}
+          />
+
           <button onClick={createPrivateSession} style={{ padding: '10px 20px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '20px', width: '100%' }}>
             Create New Room
           </button>
           
-          <div style={{ margin: '20px 0', color: '#9ca3af' }}>OR</div>
+          <div style={{ margin: '10px 0 20px 0', color: '#9ca3af' }}>OR</div>
           
-          <input 
-            type="text" 
-            placeholder="Enter Room Code" 
-            value={roomId} 
-            onChange={(e) => setRoomId(e.target.value)}
-            style={{ padding: '10px', borderRadius: '5px', border: 'none', width: '200px', marginRight: '10px', backgroundColor: '#374151', color: 'white' }}
-          />
-          <button onClick={joinRoom} style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
-            Join
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input 
+              type="text" 
+              placeholder="Enter Room Code" 
+              value={roomId} 
+              onChange={(e) => setRoomId(e.target.value)}
+              style={{ padding: '10px', borderRadius: '5px', border: 'none', flex: 1, backgroundColor: '#374151', color: 'white' }}
+            />
+            <button onClick={joinRoom} style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
+              Join
+            </button>
+          </div>
         </div>
       ) : (
 
-      /* Main Video Container (Only shows when in a room) */
-      <div style={{ position: 'relative', width: '90vw', height: '90vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
+      <div style={{ position: 'relative', width: '95vw', height: '90vh', backgroundColor: '#1f2937', borderRadius: '12px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
         
-        {/* Room Info Display */}
         <div style={{ position: 'absolute', top: '20px', left: '20px', backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', zIndex: 10 }}>
             Room Code: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{roomId}</span>
         </div>
 
-        {/* Dynamic Display for Screen Share and Webcams */}
-        <div style={{ display: 'flex', width: '100%', height: '100%', flexDirection: (isScreenSharing || isReceivingScreen) ? 'row' : 'column' }}>
+        {/* Dynamic Grid Layout for Multiple Screens */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%', height: 'calc(100% - 80px)', padding: '20px', gap: '10px', boxSizing: 'border-box', alignContent: 'center', justifyContent: 'center' }}>
             
           {/* Remote Camera Video */}
-          <div style={{ flex: (isScreenSharing || isReceivingScreen) ? 1 : 'none', width: '100%', height: '100%', position: 'relative' }}>
+          <div style={{ flex: '1 1 45%', minWidth: '300px', height: (isScreenSharing || isReceivingScreen) ? '45%' : '100%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden' }}>
             {callAccepted && !callEnded ? (
-              <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <>
+                <video playsInline ref={remoteVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <div style={nameBadgeStyle}>{remoteUserName}</div>
+              </>
             ) : (
               <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '1.2rem' }}>
                 Waiting for friend to join...
@@ -304,46 +328,31 @@ function App() {
 
           {/* Local Shared Screen */}
           {isScreenSharing && (
-            <div style={{ flex: 1, borderLeft: '2px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+            <div style={{ flex: '1 1 45%', minWidth: '300px', height: '45%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '2px solid #10b981' }}>
                <video playsInline muted ref={localScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+               <div style={nameBadgeStyle}>{userName}'s Screen</div>
             </div>
           )}
 
           {/* Remote Shared Screen */}
           {isReceivingScreen && (
-            <div style={{ flex: 2, borderLeft: '2px solid #374151', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+            <div style={{ flex: '1 1 45%', minWidth: '300px', height: '45%', position: 'relative', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', border: '2px solid #3b82f6' }}>
                <video playsInline ref={remoteScreenVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+               <div style={nameBadgeStyle}>{remoteUserName}'s Screen</div>
             </div>
           )}
         </div>
 
-        {/* Local Video (Picture-in-Picture Style) */}
-        <video 
-          playsInline 
-          muted 
-          ref={localVideo} 
-          autoPlay 
-          style={{ 
-            position: 'absolute', 
-            bottom: '20px', 
-            right: '20px', 
-            width: '250px', 
-            height: '200px', 
-            objectFit: 'fill', 
-            borderRadius: '8px', 
-            border: '2px solid #374151',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
-            display: cameraActive ? 'block' : '',
-            backgroundColor: 'black', 
-          }} 
-        />
-
-        <img src={disableCamera} alt="disableCamera" style={{position: 'absolute', bottom: '92px', right: '115px', width: '40px', height: '40px',display: cameraActive ? 'none' : 'block', transform: 'rotateX(180deg)'}}/>
-        <img src={muted} alt="muteIcon" style={{position: 'absolute', bottom: '30px', right: '30px', width: '20px', height: '20px',display: micActive ? 'none' : 'block'}}/>
+        {/* Local Video (Floating Picture-in-Picture) */}
+        <div style={{ position: 'absolute', bottom: '90px', right: '20px', width: '200px', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #374151', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)', display: cameraActive ? 'block' : 'none', backgroundColor: 'black', zIndex: 10 }}>
+          <video playsInline muted ref={localVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={nameBadgeStyle}>{userName} (You)</div>
+          <img src={muted} alt="muteIcon" style={{position: 'absolute', top: '10px', right: '10px', width: '20px', height: '20px', display: micActive ? 'none' : 'block', zIndex: 11}}/>
+        </div>
 
         {/* Control Bar */}
-        <div style={{position: 'absolute', bottom: '10px'}}>
-          <div style={{ display: 'flex', gap: '15px', marginTop: '30px', padding: '15px 30px', backgroundColor: '#131820', borderRadius: '50px' }}>
+        <div style={{position: 'absolute', bottom: '10px', zIndex: 20}}>
+          <div style={{ display: 'flex', gap: '15px', padding: '15px 30px', backgroundColor: '#131820', borderRadius: '50px' }}>
             <button onClick={toggleMic} style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', cursor: 'pointer', backgroundColor: micActive ? '#374151' : '#ef4444', color: 'white', fontWeight: 'bold' }}>
               {micActive ? "Mic" : "Mute"}
             </button>
@@ -373,10 +382,9 @@ function App() {
 
       )}
 
-      {/* Incoming Call Notification */}
       {receivingCall && !callAccepted && inRoom && (
         <div style={{ position: 'fixed', top: '20px', backgroundColor: '#374151', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '20px', zIndex: 50 }}>
-          <span style={{ fontWeight: 'bold' }}>Incoming Call...</span>
+          <span style={{ fontWeight: 'bold' }}>{remoteUserName} is calling...</span>
           <button onClick={answerCall} style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#10b981', color: 'white', fontWeight: 'bold' }}>
             Answer
           </button>

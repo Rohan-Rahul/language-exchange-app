@@ -39,6 +39,8 @@ function App() {
   const remoteScreenVideo = useRef();
   const screenStreamRef = useRef();
 
+  const isInitialSignal = useRef(true);
+
   useEffect(() => {
     socket.connect();
 
@@ -58,6 +60,12 @@ function App() {
       window.location.reload();
     });
 
+    socket.on("receiveSignal", (signal) => {
+      if (connectionRef.current) {
+        connectionRef.current.signal(signal);
+      }
+    });
+
     socket.on("screenShareStopped", () => {
       setIsReceivingScreen(false);
       setRemoteScreenStream(null);
@@ -73,6 +81,12 @@ function App() {
       remoteScreenVideo.current.srcObject = remoteScreenStream;
     }
   }, [isReceivingScreen, remoteScreenStream]);
+
+  useEffect(() => {
+    if (inRoom && localVideo.current && stream) {
+      localVideo.current.srcObject = stream;
+    }
+  }, [inRoom, stream]);
 
   // Room Functions
   const createPrivateSession = () => {
@@ -90,6 +104,8 @@ function App() {
   };
 
   const callUser = () => {
+    isInitialSignal.current = true;
+
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -105,7 +121,12 @@ function App() {
     });
 
     peer.on("signal", (data) => {
-      socket.emit("callUser", { signalData: data, roomId });
+      if (isInitialSignal.current) {
+        socket.emit("callUser", { signalData: data, roomId });
+        isInitialSignal.current = false;
+      } else {
+        socket.emit("sendSignal", { signal: data, roomId });
+      }
     });
 
     peer.on("stream", (incomingStream) => {
@@ -126,6 +147,8 @@ function App() {
   };
 
   const answerCall = () => {
+    isInitialSignal.current = true;
+
     setCallAccepted(true);
     const peer = new Peer({
       initiator: false,
@@ -142,7 +165,12 @@ function App() {
     });
 
     peer.on("signal", (data) => {
-      socket.emit("answerCall", { signal: data, to: callerSignal.from, roomId });
+      if (isInitialSignal.current) {
+        socket.emit("answerCall", { signal: data, to: callerSignal.from, roomId });
+        isInitialSignal.current = false;
+      } else {
+        socket.emit("sendSignal", { signal: data, roomId });
+      }
     });
 
     peer.on("stream", (incomingStream) => {
